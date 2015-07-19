@@ -7,6 +7,7 @@
 //
 
 #import "Start.h"
+@import GoogleMaps;
 #define nUagLat 20.695306
 #define nUagLng -103.418190
 
@@ -25,12 +26,29 @@
     mstHumidity = [[NSString alloc] init];
     [self initData];
     [self initController];
+    
+    // Localization
+    self.locationManager                    = [[CLLocationManager alloc] init];
+    self.locationManager.delegate           = self;
+    self.locationManager.desiredAccuracy    = kCLLocationAccuracyKilometer;
+    self.locationManager.distanceFilter     = 100; // 100 meters
+    
+    self.location                           = [[CLLocation alloc] init];
+    self.locationManager.desiredAccuracy    = kCLLocationAccuracyBest;
+    [self.locationManager  requestWhenInUseAuthorization];
+    [self.locationManager startUpdatingLocation];
 
 }
 
 - (void)didReceiveMemoryWarning {
     [super didReceiveMemoryWarning];
     // Dispose of any resources that can be recreated.
+}
+
+- (void)viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    
+    [self.locationManager stopUpdatingLocation];
 }
 
 - (void)initData {
@@ -47,10 +65,60 @@
 }
 
 - (IBAction)btnRefrsehPressed:(id)sender {
+    
+    //Location
+    if (nil != self.locationManager){
+        NSLog(@"Latitude: %lf, Longitude: %lf", self.locationManager.location.coordinate.latitude, self.locationManager.location.coordinate.longitude);
+        
+        NSDictionary *jsonResponse = [Declarations getWeather:self.locationManager.location.coordinate.latitude and:self.locationManager.location.coordinate.longitude];
+        //print(jsonResponse);
+        [Parser parseWeather:jsonResponse];
+        
+        print(NSLog(@"mstIcon = %@", mstIcon))
+        print(NSLog(@"mstTemp = %@", mstTemp))
+        print(NSLog(@"mstTempMax = %@", mstTempMax))
+        print(NSLog(@"mstTempMin = %@", mstTempMin))
+        print(NSLog(@"mstPressure = %@", mstPressure))
+        print(NSLog(@"mstHumidity = %@", mstHumidity))
+    } else {
+        NSLog(@"no locationManager is present!!!!");
+    }
+    
+    NSURL *imageURL = [NSURL URLWithString:mstIcon];
+    NSData *imageData = [NSData dataWithContentsOfURL:imageURL];
+    
+    self.imgIcon.image = [UIImage imageWithData:imageData];//[UIImage imageNamed:mstIcon];
+    self.imgIcon.frame  = CGRectMake(self.imgIcon.frame.origin.x,self.imgIcon.frame.origin.y,50,50);
     self.lblTemp.text       = mstTemp;
     self.lblMax.text        = mstTempMax;
     self.lblMin.text        = mstTempMin;
     self.lblPressure.text   = mstPressure;
     self.lblHumidity.text   = mstHumidity;
+
+
 }
+/**********************************************************************************************/
+#pragma mark - Localization
+/**********************************************************************************************/
+- (void)locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray *)locations {
+    self.location = locations.lastObject;
+    NSLog(@"didUpdateLocation!");
+    CLGeocoder * geoCoder = [[CLGeocoder alloc] init];
+    [geoCoder reverseGeocodeLocation:self.locationManager.location completionHandler:^(NSArray *placemarks, NSError *error) {
+        for (CLPlacemark *placemark in placemarks) {
+            NSString *addressName = [placemark name];
+            NSString *city = [placemark locality];
+            NSString *administrativeArea = [placemark administrativeArea];
+            NSString *country  = [placemark country];
+            NSString *countryCode = [placemark ISOcountryCode];
+            NSLog(@"name is %@ and locality is %@ and administrative area is %@ and country is %@ and country code %@", addressName, city, administrativeArea, country, countryCode);
+        }
+        
+        NSLog(@"mlatitude = %f", self.locationManager.location.coordinate.latitude);
+        NSLog(@"mlongitude = %f", self.locationManager.location.coordinate.longitude);
+
+    }];
+    
+}
+
 @end
